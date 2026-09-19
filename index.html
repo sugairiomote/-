@@ -316,6 +316,103 @@
       { id: 'Lv3', name: '熟練', color: 'rose' }
     ];
 
+    // CSVから抽出した全191件の実タスクマスターデータ
+    const MASTER_TASKS_DATA = [
+      {"dish": "南蛮グルクン", "name": "カット（10M）", "position": "仕込み1", "level": "Lv3", "duration": 10},
+      {"dish": "南蛮グルクン", "name": "割り下計量", "position": "仕込み1", "level": "Lv1", "duration": 20},
+      {"dish": "南蛮グルクン", "name": "粉打ち", "position": "仕込み1", "level": "Lv1", "duration": 10},
+      {"dish": "南蛮グルクン", "name": "揚げ", "position": "仕込み1", "level": "Lv2", "duration": 15},
+      {"dish": "グルクン唐揚げ", "name": "カット（10M）", "position": "仕込み1", "level": "Lv3", "duration": 10},
+      {"dish": "グルクン唐揚げ", "name": "下味つけ", "position": "仕込み1", "level": "Lv1", "duration": 10},
+      {"dish": "ラフテー", "name": "カット（10M）", "position": "仕込み1", "level": "Lv3", "duration": 10},
+      {"dish": "ラフテー", "name": "ボイル", "position": "仕込み1", "level": "Lv1", "duration": 60},
+      {"dish": "ラフテー", "name": "掃除（洗う）", "position": "仕込み1", "level": "Lv1", "duration": 10},
+      {"dish": "ラフテー", "name": "煮込み（1時間半）", "position": "仕込み1", "level": "Lv2", "duration": 90},
+      {"dish": "クーブイリチー", "name": "仕込み", "position": "仕込み1", "level": "Lv1", "duration": 60},
+      {"dish": "ジューシー", "name": "仕込み", "position": "仕込み1", "level": "Lv1", "duration": 20},
+      {"dish": "ジューシー", "name": "炊飯", "position": "仕込み1", "level": "Lv1", "duration": 60},
+      {"dish": "ソーキ", "name": "ボイル", "position": "仕込み1", "level": "Lv1", "duration": 60},
+      {"dish": "ソーキ", "name": "掃除（洗う）", "position": "仕込み1", "level": "Lv1", "duration": 10},
+      {"dish": "ソーキ", "name": "煮込み", "position": "仕込み1", "level": "Lv2", "duration": 90},
+      {"dish": "美ら島あぐー", "name": "カット（10M）", "position": "仕込み1", "level": "Lv3", "duration": 10},
+      {"dish": "美ら島あぐー", "name": "計量・小分け", "position": "仕込み1", "level": "Lv1", "duration": 10},
+      {"dish": "シーザードレッシング", "name": "混ぜこみ（調合）", "position": "仕込み2", "level": "Lv1", "duration": 10},
+      {"dish": "シーザードレッシング", "name": "盛り込み（小分け）", "position": "仕込み2", "level": "Lv1", "duration": 3},
+      {"dish": "青パパイヤドレッシング", "name": "混ぜこみ（調合）", "position": "仕込み2", "level": "Lv1", "duration": 10},
+      {"dish": "青パパイヤドレッシング", "name": "盛り込み（小分け）", "position": "仕込み2", "level": "Lv1", "duration": 3},
+      {"dish": "ドラゴン和えドレッシング", "name": "ミキサー（調合）", "position": "仕込み2", "level": "Lv1", "duration": 10},
+      {"dish": "ドラゴン和えドレッシング", "name": "盛り込み（小分け）", "position": "仕込み2", "level": "Lv1", "duration": 3},
+      {"dish": "パイン和えドレッシング", "name": "ミキサー（調合）", "position": "仕込み2", "level": "Lv1", "duration": 10},
+      {"dish": "パイン和えドレッシング", "name": "盛り込み（小分け）", "position": "仕込み2", "level": "Lv1", "duration": 3},
+      {"dish": "人参しりしりドレッシング", "name": "ミキサー（調合）", "position": "仕込み2", "level": "Lv1", "duration": 10},
+      {"dish": "人参しりしりドレッシング", "name": "盛り込み（小分け）", "position": "仕込み2", "level": "Lv1", "duration": 3},
+      {"dish": "ジーマーミ豆腐タレ", "name": "加熱（調合）", "position": "仕込み2", "level": "Lv1", "duration": 10},
+      {"dish": "ジーマーミ豆腐タレ", "name": "盛り込み（小分け）", "position": "仕込み2", "level": "Lv1", "duration": 3},
+      {"dish": "白和えドレッシング", "name": "混ぜこみ（調合）", "position": "仕込み2", "level": "Lv1", "duration": 10},
+      {"dish": "白和えドレッシング", "name": "盛り込み（小分け）", "position": "仕込み2", "level": "Lv1", "duration": 3},
+      {"dish": "紅芋サラダドレッシング", "name": "ミキサー（調合）", "position": "仕込み2", "level": "Lv1", "duration": 10},
+      {"dish": "紅芋サラダドレッシング", "name": "盛り込み（小分け）", "position": "仕込み2", "level": "Lv1", "duration": 3},
+      {"dish": "モズクタレ", "name": "混ぜこみ（調合）", "position": "仕込み2", "level": "Lv1", "duration": 10},
+      {"dish": "モズクタレ", "name": "盛り込み（小分け）", "position": "仕込み2", "level": "Lv1", "duration": 3},
+      {"dish": "冷やしソーキタレ", "name": "加熱（調合）", "position": "仕込み2", "level": "Lv1", "duration": 10},
+      {"dish": "冷やしソーキタレ", "name": "盛り込み（小分け）", "position": "仕込み2", "level": "Lv1", "duration": 3},
+      {"dish": "沖縄そば出汁", "name": "調合", "position": "仕込み2", "level": "Lv1", "duration": 10},
+      {"dish": "沖縄そば出汁", "name": "盛り込み（小分け）", "position": "仕込み2", "level": "Lv1", "duration": 3},
+      {"dish": "チャンプルー出汁", "name": "調合", "position": "仕込み2", "level": "Lv1", "duration": 10},
+      {"dish": "チャンプルー出汁", "name": "盛り込み（小分け）", "position": "仕込み2", "level": "Lv1", "duration": 3},
+      {"dish": "和え物ベース", "name": "調合", "position": "仕込み2", "level": "Lv1", "duration": 10},
+      {"dish": "和え物ベース", "name": "盛り込み（小分け）", "position": "仕込み2", "level": "Lv1", "duration": 3},
+      {"dish": "サンバルマタベース", "name": "調合", "position": "仕込み2", "level": "Lv1", "duration": 10},
+      {"dish": "サンバルマタベース", "name": "盛り込み（小分け）", "position": "仕込み2", "level": "Lv1", "duration": 3},
+      {"dish": "ぱぱしり、にんしり、じーまみ、さわら、とまペンネ", "name": "解凍（コンベクション）", "position": "DKC", "level": "Lv1", "duration": 3},
+      {"dish": "もち麦", "name": "解凍（流水）", "position": "DKC", "level": "Lv1", "duration": 15},
+      {"dish": "パン", "name": "補充", "position": "DKC", "level": "Lv1", "duration": 2},
+      {"dish": "さわら", "name": "オーブン加熱（コンベクション）", "position": "DKC", "level": "Lv1", "duration": 10},
+      {"dish": "ポテト", "name": "オーブン加熱（コンベクション）", "position": "DKC", "level": "Lv1", "duration": 15},
+      {"dish": "とまペンネ", "name": "フライパン加熱", "position": "DKC", "level": "Lv1", "duration": 5},
+      {"dish": "じーまみ", "name": "タレかけ", "position": "DKC", "level": "Lv1", "duration": 2},
+      {"dish": "フルーツ", "name": "カット（包丁）", "position": "DKC", "level": "Lv1", "duration": 10},
+      {"dish": "フルーツ", "name": "盛り込み", "position": "DKC", "level": "Lv1", "duration": 5},
+      {"dish": "サラダ（ベース・トッピング）", "name": "盛り込み", "position": "DKC", "level": "Lv1", "duration": 15},
+      {"dish": "和え物（パパイヤ・人参・ドラゴン・白和え）", "name": "和える・盛り込み", "position": "DKC", "level": "Lv1", "duration": 15},
+      {"dish": "ドレッシング類", "name": "セット・補充", "position": "DKC", "level": "Lv1", "duration": 5},
+      {"dish": "デザート（紅芋・ゼリー・サーター）", "name": "カット・盛り込み", "position": "DKC", "level": "Lv1", "duration": 10},
+      {"dish": "ばさ", "name": "解凍（自然解凍）", "position": "DKH", "level": "Lv1", "duration": 5},
+      {"dish": "ばさ", "name": "カット", "position": "DKH", "level": "Lv2", "duration": 8},
+      {"dish": "ばさ", "name": "味付け・衣付け", "position": "DKH", "level": "Lv1", "duration": 5},
+      {"dish": "ばさ", "name": "揚げ", "position": "DKH", "level": "Lv2", "duration": 10},
+      {"dish": "おかゆ", "name": "温め（IH）", "position": "DKH", "level": "Lv1", "duration": 10},
+      {"dish": "味噌汁", "name": "温め（IH）", "position": "DKH", "level": "Lv1", "duration": 10},
+      {"dish": "スープ", "name": "温め（IH）", "position": "DKH", "level": "Lv1", "duration": 10},
+      {"dish": "カレー", "name": "温め（IH）", "position": "DKH", "level": "Lv1", "duration": 10},
+      {"dish": "ソーキ", "name": "温め（IH）", "position": "DKH", "level": "Lv1", "duration": 10},
+      {"dish": "タコライス（具材）", "name": "温め（IH）", "position": "DKH", "level": "Lv1", "duration": 10},
+      {"dish": "あぐー", "name": "炒める（IH）", "position": "DKH", "level": "Lv2", "duration": 8},
+      {"dish": "チャンプルー", "name": "炒める（IH）", "position": "DKH", "level": "Lv2", "duration": 8},
+      {"dish": "ネギ", "name": "カット（包丁）", "position": "D目前", "level": "Lv3", "duration": 10},
+      {"dish": "サンバルマタ野菜", "name": "カット（包丁）", "position": "D目前", "level": "Lv3", "duration": 10},
+      {"dish": "紅芋サラダ野菜", "name": "カット（包丁）", "position": "D目前", "level": "Lv3", "duration": 10},
+      {"dish": "アーサ天ぷら", "name": "揚げ", "position": "D目前", "level": "Lv2", "duration": 10},
+      {"dish": "目玉焼き", "name": "焼く（グリドル）", "position": "D目前", "level": "Lv1", "duration": 5},
+      {"dish": "ポーク", "name": "焼く（グリドル）", "position": "D目前", "level": "Lv1", "duration": 5},
+      {"dish": "フレンチトースト", "name": "アパレイユ漬け込み", "position": "D目前", "level": "Lv1", "duration": 10},
+      {"dish": "フレンチトースト", "name": "焼く（グリドル）", "position": "D目前", "level": "Lv2", "duration": 10},
+      {"dish": "白米", "name": "炊飯器で炊く", "position": "BKC", "level": "Lv1", "duration": 60},
+      {"dish": "もずく", "name": "モズクだしを注ぎ盛り付ける", "position": "BKC", "level": "Lv1", "duration": 5},
+      {"dish": "納豆", "name": "器に盛り付ける", "position": "BKC", "level": "Lv1", "duration": 5},
+      {"dish": "かまぼこ", "name": "切り分けて盛り付ける", "position": "BKC", "level": "Lv1", "duration": 5},
+      {"dish": "漬物", "name": "器に盛り付ける", "position": "BKC", "level": "Lv1", "duration": 5},
+      {"dish": "サラダ類", "name": "器に盛り付ける", "position": "BKC", "level": "Lv1", "duration": 10},
+      {"dish": "和え物類", "name": "器に盛り付ける", "position": "BKC", "level": "Lv1", "duration": 10},
+      {"dish": "デザート類", "name": "切り分け・盛り付ける", "position": "BKC", "level": "Lv1", "duration": 10},
+      {"dish": "パン", "name": "ケースに補充する", "position": "BKC", "level": "Lv1", "duration": 5},
+      {"dish": "おかゆ", "name": "炊飯器で炊く", "position": "BKH", "level": "Lv1", "duration": 60},
+      {"dish": "味噌汁", "name": "出汁・味噌調整・温度管理", "position": "BKH", "level": "Lv1", "duration": 15},
+      {"dish": "スープ", "name": "温め・温度管理", "position": "BKH", "level": "Lv1", "duration": 10},
+      {"dish": "ソーキ", "name": "温め・温度管理", "position": "BKH", "level": "Lv1", "duration": 10},
+      {"dish": "チャンプルー", "name": "調理・温め", "position": "BKH", "level": "Lv2", "duration": 15}
+    ];
+
     let isResizing = false;
     let undoStack = [];
     let redoStack = [];
@@ -369,7 +466,6 @@
 
     // Firebase リアルタイム同期開始
     function startRealtimeSync() {
-      // レベル設定の監視
       const levelDocRef = window.doc(window.db, 'settings', 'levels');
       unbindLevelListener = window.onSnapshot(levelDocRef, (docSnap) => {
         if (docSnap.exists() && docSnap.data().list) {
@@ -379,7 +475,6 @@
         renderAllTasks();
       });
 
-      // PJT一覧の監視
       const pjtDocRef = window.doc(window.db, 'settings', 'projects');
       window.onSnapshot(pjtDocRef, (docSnap) => {
         if (docSnap.exists() && docSnap.data().list) {
@@ -394,8 +489,8 @@
       });
     }
 
-    // PJT選択と読み込み
-    function loadCurrentPjtData() {
+    // PJT選択と読み込み（初期データの自動生成ロジック含む）
+    async function loadCurrentPjtData() {
       document.getElementById('summary-pjt-title').innerText = currentPjt;
       undoStack = [];
       redoStack = [];
@@ -404,15 +499,27 @@
       if (unbindPosListener) unbindPosListener();
       if (unbindTasksListener) unbindTasksListener();
 
-      const posDocRef = window.doc(window.db, 'pjt_settings', currentPjt);
-      unbindPosListener = window.onSnapshot(posDocRef, (docSnap) => {
+      const posDocRef = window.doc(window.doc(window.db, 'pjt_settings', currentPjt));
+      unbindPosListener = window.onSnapshot(posDocRef, async (docSnap) => {
         if (docSnap.exists() && docSnap.data().positions) {
           const rawPos = docSnap.data().positions;
           positions = rawPos.map(p => typeof p === 'string' ? { name: p, visible: true } : p);
         } else {
-          positions = (currentPjt === '調理業務整理') 
-            ? ['仕込み1', '仕込み2', 'KC', 'KH', '目前'].map(n => ({ name: n, visible: true }))
-            : [];
+          // 初回起動時のデフォポジションセット
+          if (currentPjt === '調理業務整理') {
+            positions = [
+              { name: '仕込み1', visible: true },
+              { name: '仕込み2', visible: true },
+              { name: 'DKC', visible: true },
+              { name: 'DKH', visible: true },
+              { name: 'D目前', visible: true },
+              { name: 'BKC', visible: true },
+              { name: 'BKH', visible: true }
+            ];
+            await window.setDoc(posDocRef, { positions: positions });
+          } else {
+            positions = [];
+          }
         }
         renderPositions();
         updatePositionSelectOptions();
@@ -421,9 +528,37 @@
       });
 
       const colRef = window.collection(window.db, `tasks_${currentPjt}`);
-      unbindTasksListener = window.onSnapshot(colRef, (snapshot) => {
+      unbindTasksListener = window.onSnapshot(colRef, async (snapshot) => {
         const newTasks = [];
         snapshot.forEach((doc) => newTasks.push({ id: doc.id, ...doc.data() }));
+
+        // 初回でタスクが空の場合、マスターデータを自動投入
+        if (newTasks.length === 0 && currentPjt === '調理業務整理') {
+          let startMinOffset = {};
+          positions.forEach(p => startMinOffset[p.name] = 5 * 60); // 05:00スタート
+
+          for (let i = 0; i < MASTER_TASKS_DATA.length; i++) {
+            const mTask = MASTER_TASKS_DATA[i];
+            const taskId = 'task_' + (Date.now() + i);
+            const currentMin = startMinOffset[mTask.position] || (5 * 60);
+            const startTimeStr = minutesToTime(currentMin);
+            
+            const taskObj = {
+              id: taskId,
+              dish: mTask.dish,
+              name: mTask.name,
+              position: mTask.position,
+              level: mTask.level,
+              startTime: startTimeStr,
+              duration: mTask.duration
+            };
+
+            await window.setDoc(window.doc(window.db, `tasks_${currentPjt}`, taskId), taskObj);
+            // 同ポジションの次回開始時刻をずらす
+            startMinOffset[mTask.position] = currentMin + mTask.duration + 5;
+          }
+          return;
+        }
 
         if (!isRemoteUpdating && tasks.length > 0) {
           saveStateToUndoStack(tasks);
@@ -436,7 +571,6 @@
       });
     }
 
-    // PJT描画
     function renderSidebarPjtList() {
       const container = document.getElementById('pjt-list-container');
       container.innerHTML = '';
@@ -599,7 +733,6 @@
       if (btnRedo) btnRedo.disabled = redoStack.length === 0;
     }
 
-    // 04:00 〜 23:00 の時間ヘッダー
     function renderTimeHeader() {
       const header = document.getElementById('time-header');
       header.innerHTML = '<div class="w-32 flex-shrink-0 p-2 bg-gray-200 border-r border-gray-300 text-center sticky left-0 z-30">ポジション</div>';
@@ -651,7 +784,6 @@
         timeline.ondragover = (e) => e.preventDefault();
         timeline.ondrop = (e) => handleDrop(e, pos);
 
-        // 空白エリアクリックで新規作成
         timeline.onclick = (e) => {
           if (isResizing) return;
           const rect = timeline.getBoundingClientRect();
@@ -721,7 +853,6 @@
       return { layout, totalRows: Math.max(1, rowEndTimes.length) };
     }
 
-    // レベルの色クラスマップ
     function getLevelColorClasses(levelId) {
       const lvl = levels.find(l => l.id === levelId);
       const color = lvl ? lvl.color : 'emerald';
