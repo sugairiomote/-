@@ -298,7 +298,6 @@
   </div>
 
   <script>
-    // 時間軸設定: 04:00 〜 23:00 (19時間 = 1140分)
     const START_HOUR = 4.0;
     const END_HOUR = 23.0;
     const TOTAL_MINUTES = (END_HOUR - START_HOUR) * 60;
@@ -413,6 +412,16 @@
       {"dish": "チャンプルー", "name": "調理・温め", "position": "BKH", "level": "Lv2", "duration": 15}
     ];
 
+    const DEFAULT_POSITIONS_SET = [
+      { name: '仕込み1', visible: true },
+      { name: '仕込み2', visible: true },
+      { name: 'DKC', visible: true },
+      { name: 'DKH', visible: true },
+      { name: 'D目前', visible: true },
+      { name: 'BKC', visible: true },
+      { name: 'BKH', visible: true }
+    ];
+
     let isResizing = false;
     let undoStack = [];
     let redoStack = [];
@@ -489,7 +498,7 @@
       });
     }
 
-    // PJT選択と読み込み（初期データの自動生成ロジック含む）
+    // PJT選択と読み込み（データの強制初期化・保護ロジック含む）
     async function loadCurrentPjtData() {
       document.getElementById('summary-pjt-title').innerText = currentPjt;
       undoStack = [];
@@ -499,23 +508,15 @@
       if (unbindPosListener) unbindPosListener();
       if (unbindTasksListener) unbindTasksListener();
 
-      const posDocRef = window.doc(window.doc(window.db, 'pjt_settings', currentPjt));
+      const posDocRef = window.doc(window.db, 'pjt_settings', currentPjt);
       unbindPosListener = window.onSnapshot(posDocRef, async (docSnap) => {
-        if (docSnap.exists() && docSnap.data().positions) {
+        if (docSnap.exists() && docSnap.data().positions && docSnap.data().positions.length > 0) {
           const rawPos = docSnap.data().positions;
           positions = rawPos.map(p => typeof p === 'string' ? { name: p, visible: true } : p);
         } else {
-          // 初回起動時のデフォポジションセット
+          // 「調理業務整理」PJTの場合は強制的に7ポジションを復元
           if (currentPjt === '調理業務整理') {
-            positions = [
-              { name: '仕込み1', visible: true },
-              { name: '仕込み2', visible: true },
-              { name: 'DKC', visible: true },
-              { name: 'DKH', visible: true },
-              { name: 'D目前', visible: true },
-              { name: 'BKC', visible: true },
-              { name: 'BKH', visible: true }
-            ];
+            positions = JSON.parse(JSON.stringify(DEFAULT_POSITIONS_SET));
             await window.setDoc(posDocRef, { positions: positions });
           } else {
             positions = [];
@@ -532,14 +533,14 @@
         const newTasks = [];
         snapshot.forEach((doc) => newTasks.push({ id: doc.id, ...doc.data() }));
 
-        // 初回でタスクが空の場合、マスターデータを自動投入
+        // 「調理業務整理」PJTでタスクが空の場合、マスターデータを自動投入
         if (newTasks.length === 0 && currentPjt === '調理業務整理') {
           let startMinOffset = {};
-          positions.forEach(p => startMinOffset[p.name] = 5 * 60); // 05:00スタート
+          DEFAULT_POSITIONS_SET.forEach(p => startMinOffset[p.name] = 5 * 60); // 05:00スタート
 
           for (let i = 0; i < MASTER_TASKS_DATA.length; i++) {
             const mTask = MASTER_TASKS_DATA[i];
-            const taskId = 'task_' + (Date.now() + i);
+            const taskId = 'task_init_' + i;
             const currentMin = startMinOffset[mTask.position] || (5 * 60);
             const startTimeStr = minutesToTime(currentMin);
             
@@ -554,7 +555,6 @@
             };
 
             await window.setDoc(window.doc(window.db, `tasks_${currentPjt}`, taskId), taskObj);
-            // 同ポジションの次回開始時刻をずらす
             startMinOffset[mTask.position] = currentMin + mTask.duration + 5;
           }
           return;
