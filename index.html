@@ -1,0 +1,1044 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>業務整理アプリ (Firebaseリアルタイム共有版)</title>
+  
+  <!-- Tailwind CSS -->
+  <script src="https://cdn.tailwindcss.com"></script>
+  <!-- Lucide Icons -->
+  <script src="https://unpkg.com/lucide@latest"></script>
+  
+  <!-- Firebase SDK -->
+  <script type="module">
+    import { initializeApp } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-app.js";
+    import { getAuth, signInWithEmailAndPassword, onAuthStateChanged, signOut } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-auth.js";
+    import { getFirestore, collection, doc, setDoc, deleteDoc, onSnapshot } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore.js";
+
+    // Firebase設定情報
+    const firebaseConfig = {
+      apiKey: "AIzaSyAtn102K5cAujWtw7dShK6If2fvD2l-wOU",
+      authDomain: "kitchen-pjt.firebaseapp.com",
+      projectId: "kitchen-pjt",
+      storageBucket: "kitchen-pjt.firebasestorage.app",
+      messagingSenderId: "61492477555",
+      appId: "1:61492477555:web:ed1cc48e9ef614e39c7406"
+    };
+
+    const app = initializeApp(firebaseConfig);
+    const auth = getAuth(app);
+    const db = getFirestore(app);
+
+    window.db = db;
+    window.auth = auth;
+    window.signInWithEmailAndPassword = signInWithEmailAndPassword;
+    window.signOut = signOut;
+    window.collection = collection;
+    window.doc = doc;
+    window.setDoc = setDoc;
+    window.deleteDoc = deleteDoc;
+    window.onSnapshot = onSnapshot;
+
+    onAuthStateChanged(auth, (user) => {
+      const loginScreen = document.getElementById('login-screen');
+      const appScreen = document.getElementById('app-screen');
+      const authStatus = document.getElementById('auth-status');
+
+      if (user) {
+        loginScreen.classList.add('hidden');
+        appScreen.classList.remove('hidden');
+        authStatus.innerText = "同期中 (オンライン)";
+        authStatus.className = "px-2 py-1 rounded text-xs font-bold bg-green-500 text-white";
+        startRealtimeSync();
+      } else {
+        loginScreen.classList.remove('hidden');
+        appScreen.classList.add('hidden');
+        authStatus.innerText = "未ログイン";
+        authStatus.className = "px-2 py-1 rounded text-xs font-bold bg-gray-500 text-white";
+      }
+    });
+  </script>
+
+  <style>
+    .excel-header { background-color: #107c41; color: white; }
+    .excel-grid {
+      background-size: 10px 100%, 100% 50px;
+      background-image: 
+        linear-gradient(to right, rgba(229, 231, 235, 0.8) 1px, transparent 1px),
+        linear-gradient(to bottom, rgba(229, 231, 235, 0.8) 1px, transparent 1px);
+    }
+    .task-block {
+      user-select: none;
+      touch-action: none;
+      transition: box-shadow 0.15s ease;
+    }
+    .task-block:hover { 
+      box-shadow: 0 4px 8px -1px rgba(0, 0, 0, 0.25);
+      z-index: 30 !important;
+    }
+    .resize-handle {
+      position: absolute;
+      right: 0;
+      top: 0;
+      bottom: 0;
+      width: 8px;
+      cursor: e-resize;
+      background-color: rgba(0, 0, 0, 0.1);
+      border-top-right-radius: 4px;
+      border-bottom-right-radius: 4px;
+    }
+    .resize-handle:hover {
+      background-color: rgba(0, 0, 0, 0.3);
+    }
+  </style>
+</head>
+<body class="bg-gray-100 font-sans h-screen flex flex-col overflow-hidden">
+
+  <!-- 1. パスワード ログイン画面 -->
+  <div id="login-screen" class="fixed inset-0 bg-slate-800 flex items-center justify-center z-50">
+    <div class="bg-white p-8 rounded-lg shadow-xl w-96">
+      <div class="text-center mb-6">
+        <div class="inline-block p-3 bg-emerald-100 text-emerald-700 rounded-full mb-2">
+          <i data-lucide="layout-grid" class="w-8 h-8"></i>
+        </div>
+        <h2 class="text-2xl font-bold text-gray-800">業務整理アプリ</h2>
+        <p class="text-sm text-gray-500 mt-1">店舗の合言葉を入力してログイン</p>
+      </div>
+
+      <form id="login-form" onsubmit="handleLogin(event)">
+        <div class="mb-4">
+          <label class="block text-xs font-bold text-gray-600 mb-1">メールアドレス / ID</label>
+          <input type="email" id="login-email" value="kitchen@example.com" class="w-full p-2 border rounded text-sm focus:ring-2 focus:ring-emerald-500 outline-none" required>
+        </div>
+        <div class="mb-6">
+          <label class="block text-xs font-bold text-gray-600 mb-1">合言葉（パスワード）</label>
+          <input type="password" id="login-password" placeholder="パスワードを入力" class="w-full p-2 border rounded text-sm focus:ring-2 focus:ring-emerald-500 outline-none" required>
+        </div>
+        <button type="submit" class="w-full bg-emerald-600 hover:bg-emerald-700 text-white font-bold py-2 rounded transition text-sm">
+          ログインして共同編集を開始
+        </button>
+      </form>
+      <div id="login-error" class="mt-3 text-red-500 text-xs text-center hidden"></div>
+    </div>
+  </div>
+
+  <!-- 2. アプリ本体 画面 -->
+  <div id="app-screen" class="hidden flex-1 flex flex-col h-full overflow-hidden">
+    <!-- ヘッダーバー -->
+    <header class="excel-header px-4 py-2 flex justify-between items-center shadow-md z-10 flex-shrink-0">
+      <div class="flex items-center space-x-3">
+        <i data-lucide="layout-grid" class="w-6 h-6"></i>
+        <h1 class="text-lg font-bold tracking-wide">業務整理アプリ</h1>
+        <span id="auth-status" class="px-2 py-1 rounded text-xs font-bold bg-gray-500 text-white">接続中...</span>
+      </div>
+
+      <div class="flex items-center space-x-2">
+        <button id="btn-undo" onclick="undo()" disabled class="bg-emerald-800 hover:bg-emerald-900 disabled:opacity-40 text-white text-xs px-2.5 py-1.5 rounded flex items-center gap-1 border border-emerald-600">
+          <i data-lucide="undo" class="w-3.5 h-3.5"></i> 戻る
+        </button>
+        <button id="btn-redo" onclick="redo()" disabled class="bg-emerald-800 hover:bg-emerald-900 disabled:opacity-40 text-white text-xs px-2.5 py-1.5 rounded flex items-center gap-1 border border-emerald-600">
+          <i data-lucide="redo" class="w-3.5 h-3.5"></i> 進む
+        </button>
+        <button onclick="openPositionModal()" class="bg-emerald-800 hover:bg-emerald-900 text-white text-xs px-3 py-1.5 rounded flex items-center gap-1 border border-emerald-600">
+          <i data-lucide="layers" class="w-3.5 h-3.5"></i> ポジション管理
+        </button>
+        <button onclick="openAddTaskModal()" class="bg-yellow-500 hover:bg-yellow-600 text-slate-900 font-bold text-xs px-3 py-1.5 rounded flex items-center gap-1 shadow">
+          <i data-lucide="plus" class="w-4 h-4"></i> タスク追加
+        </button>
+        <button onclick="handleLogout()" class="bg-emerald-900 hover:bg-red-700 text-white text-xs px-2.5 py-1.5 rounded transition">
+          ログアウト
+        </button>
+      </div>
+    </header>
+
+    <!-- メインエリア（左 PJT管理 ＋ 中央 タイムライン ＋ 右 集計） -->
+    <div class="flex-1 flex overflow-hidden">
+      
+      <!-- 【左サイドバー】 PJT管理 -->
+      <div class="w-64 bg-slate-800 text-white border-r border-slate-700 p-3 flex flex-col flex-shrink-0 shadow-lg">
+        <div class="flex items-center justify-between border-b border-slate-700 pb-2 mb-3">
+          <h2 class="text-xs font-bold text-slate-300 uppercase tracking-wider flex items-center gap-1.5">
+            <i data-lucide="folder-kanban" class="w-4 h-4 text-emerald-400"></i> PJT (プロジェクト)
+          </h2>
+        </div>
+
+        <!-- PJT新規追加 -->
+        <div class="mb-3">
+          <div class="flex space-x-1">
+            <input type="text" id="sidebar-pjt-input" placeholder="新規PJT名を入力" class="w-full p-1.5 bg-slate-700 border border-slate-600 text-white rounded text-xs outline-none focus:border-emerald-500">
+            <button onclick="addNewPjtFromSidebar()" class="bg-emerald-600 hover:bg-emerald-700 text-white text-xs px-2.5 py-1.5 rounded font-bold flex-shrink-0">
+              作成
+            </button>
+          </div>
+        </div>
+
+        <!-- PJTリスト -->
+        <div class="flex-1 overflow-y-auto space-y-1.5 pr-1" id="pjt-list-container"></div>
+      </div>
+
+      <!-- 【中央】 タイムラインエリア -->
+      <div class="flex-1 flex flex-col overflow-auto relative bg-white excel-grid" id="timeline-container">
+        <div class="sticky top-0 z-20 flex bg-gray-100 border-b border-gray-300 font-mono text-xs font-bold text-gray-700" id="time-header" style="min-width: 1800px;">
+          <div class="w-32 flex-shrink-0 p-2 bg-gray-200 border-r border-gray-300 text-center sticky left-0 z-30">ポジション</div>
+        </div>
+        <div id="positions-container" class="flex-1" style="min-width: 1800px;"></div>
+      </div>
+
+      <!-- 【右サイドバー】 集計サマリー -->
+      <div class="w-64 bg-slate-50 border-l border-gray-300 p-4 overflow-y-auto flex-shrink-0 shadow-inner">
+        <h3 class="font-bold text-gray-700 mb-3 flex items-center gap-1.5 border-b pb-2 text-sm">
+          <i data-lucide="bar-chart-3" class="w-4 h-4 text-emerald-600"></i> <span id="summary-pjt-title">調理業務整理</span> の合計時間
+        </h3>
+        <div id="summary-list" class="space-y-3"></div>
+      </div>
+
+    </div>
+  </div>
+
+  <!-- タスク追加・編集 モーダル -->
+  <div id="task-modal" class="fixed inset-0 bg-black/50 flex items-center justify-center z-50 hidden">
+    <div class="bg-white p-6 rounded-lg shadow-xl w-96">
+      <h3 class="text-base font-bold text-gray-800 mb-4" id="modal-title">調理タスクの作成・編集</h3>
+      <form id="task-form" onsubmit="saveTask(event)">
+        <input type="hidden" id="task-id">
+        <div class="space-y-3 text-xs">
+          <div>
+            <label class="block font-bold text-gray-600 mb-1">料理名 / 対象業務</label>
+            <input type="text" id="task-dish" class="w-full p-2 border rounded" required placeholder="例: シーザードレッシング">
+          </div>
+          <div>
+            <label class="block font-bold text-gray-600 mb-1">工程・作業内容</label>
+            <input type="text" id="task-name" class="w-full p-2 border rounded" required placeholder="例: 混ぜこみ（調合）">
+          </div>
+          <div class="grid grid-cols-2 gap-2">
+            <div>
+              <label class="block font-bold text-gray-600 mb-1">ポジション</label>
+              <select id="task-position" class="w-full p-2 border rounded bg-white" required></select>
+            </div>
+            <div>
+              <label class="block font-bold text-gray-600 mb-1">レベル</label>
+              <select id="task-level" class="w-full p-2 border rounded bg-white">
+                <option value="Lv1">Lv1 (基本)</option>
+                <option value="Lv2">Lv2 (中級)</option>
+                <option value="Lv3">Lv3 (熟練)</option>
+              </select>
+            </div>
+          </div>
+          <div class="grid grid-cols-2 gap-2">
+            <div>
+              <label class="block font-bold text-gray-600 mb-1">開始時刻</label>
+              <input type="time" id="task-start" value="07:00" class="w-full p-2 border rounded" required>
+            </div>
+            <div>
+              <label class="block font-bold text-gray-600 mb-1">作業工数 (分)</label>
+              <input type="number" id="task-duration" value="10" min="1" max="600" class="w-full p-2 border rounded" required>
+            </div>
+          </div>
+        </div>
+        <div class="flex justify-between items-center mt-6">
+          <div class="flex space-x-1.5">
+            <!-- 削除ボタン -->
+            <button type="button" id="delete-btn" onclick="deleteCurrentTask()" class="px-3 py-1.5 bg-red-100 hover:bg-red-200 text-red-700 rounded text-xs font-bold hidden">
+              削除
+            </button>
+            <!-- 複製ボタン -->
+            <button type="button" id="duplicate-btn" onclick="duplicateCurrentTask()" class="px-3 py-1.5 bg-blue-100 hover:bg-blue-200 text-blue-700 rounded text-xs font-bold hidden">
+              複製
+            </button>
+          </div>
+          <div class="flex space-x-2 ml-auto">
+            <button type="button" onclick="closeTaskModal()" class="px-3 py-1.5 bg-gray-200 hover:bg-gray-300 text-gray-700 rounded text-xs font-bold">キャンセル</button>
+            <button type="submit" class="px-4 py-1.5 bg-emerald-600 hover:bg-emerald-700 text-white rounded text-xs font-bold">保存</button>
+          </div>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <!-- ポジション追加・管理 モーダル -->
+  <div id="position-modal" class="fixed inset-0 bg-black/50 flex items-center justify-center z-50 hidden">
+    <div class="bg-white p-6 rounded-lg shadow-xl w-[480px]">
+      <h3 class="text-base font-bold text-gray-800 mb-3">ポジション管理（順序変更・編集・表示切替）</h3>
+      
+      <div class="mb-4">
+        <label class="block text-xs font-bold text-gray-600 mb-1">新規ポジション追加</label>
+        <div class="flex space-x-2">
+          <input type="text" id="new-pos-name" placeholder="例: 洗い場" class="flex-1 p-2 border rounded text-xs outline-none focus:ring-1 focus:ring-emerald-500">
+          <button onclick="addNewPosition()" class="bg-emerald-600 hover:bg-emerald-700 text-white text-xs px-3 py-2 rounded font-bold">追加</button>
+        </div>
+      </div>
+
+      <div class="border-t pt-3">
+        <label class="block text-xs font-bold text-gray-600 mb-2">ポジション一覧</label>
+        <div id="position-manage-list" class="space-y-2 max-h-60 overflow-y-auto pr-1"></div>
+      </div>
+
+      <div class="flex justify-end mt-5">
+        <button onclick="closePositionModal()" class="px-4 py-1.5 bg-gray-200 hover:bg-gray-300 text-gray-700 rounded text-xs font-bold">閉じる</button>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    const START_HOUR = 4.5;
+    const END_HOUR = 22;
+    const TOTAL_MINUTES = (END_HOUR - START_HOUR) * 60;
+    const PIXELS_PER_MINUTE = 1.8;
+    const BLOCK_HEIGHT = 38;
+    
+    let projects = [{ id: 'pjt_default', name: '調理業務整理', visible: true }];
+    let currentPjt = '調理業務整理';
+
+    let positions = [];
+    let tasks = [];
+    let isResizing = false;
+
+    let undoStack = [];
+    let redoStack = [];
+    let isRemoteUpdating = false;
+
+    let unbindTasksListener = null;
+    let unbindPosListener = null;
+
+    window.onload = () => {
+      lucide.createIcons();
+      renderTimeHeader();
+      setupKeyboardShortcuts();
+    };
+
+    function setupKeyboardShortcuts() {
+      document.addEventListener('keydown', (e) => {
+        if (e.target.tagName === 'INPUT' || e.target.tagName === 'SELECT' || e.target.tagName === 'TEXTAREA') return;
+
+        const isMac = navigator.platform.toUpperCase().indexOf('MAC') >= 0;
+        const ctrlOrCmd = isMac ? e.metaKey : e.ctrlKey;
+
+        if (ctrlOrCmd && !e.shiftKey && e.key.toLowerCase() === 'z') {
+          e.preventDefault();
+          undo();
+        } else if ((ctrlOrCmd && e.key.toLowerCase() === 'y') || (ctrlOrCmd && e.shiftKey && e.key.toLowerCase() === 'z')) {
+          e.preventDefault();
+          redo();
+        }
+      });
+    }
+
+    async function handleLogin(e) {
+      e.preventDefault();
+      const email = document.getElementById('login-email').value;
+      const pass = document.getElementById('login-password').value;
+      const errDiv = document.getElementById('login-error');
+      
+      try {
+        errDiv.classList.add('hidden');
+        await window.signInWithEmailAndPassword(window.auth, email, pass);
+      } catch (err) {
+        errDiv.innerText = "ログインに失敗しました。合言葉を確認してください。";
+        errDiv.classList.remove('hidden');
+      }
+    }
+
+    function handleLogout() {
+      window.signOut(window.auth);
+    }
+
+    // Firebase リアルタイム同期開始
+    function startRealtimeSync() {
+      const pjtDocRef = window.doc(window.db, 'settings', 'projects');
+      window.onSnapshot(pjtDocRef, (docSnap) => {
+        if (docSnap.exists() && docSnap.data().list) {
+          projects = docSnap.data().list.map(p => typeof p === 'string' ? { id: p, name: p, visible: true } : p);
+        }
+        const activeProjects = projects.filter(p => p.visible !== false);
+        if (activeProjects.length > 0 && !activeProjects.some(p => p.name === currentPjt)) {
+          currentPjt = activeProjects[0].name;
+        }
+        renderSidebarPjtList();
+        loadCurrentPjtData();
+      });
+    }
+
+    // PJT選択と読み込み
+    function loadCurrentPjtData() {
+      document.getElementById('summary-pjt-title').innerText = currentPjt;
+      undoStack = [];
+      redoStack = [];
+      updateUndoRedoButtons();
+
+      if (unbindPosListener) unbindPosListener();
+      if (unbindTasksListener) unbindTasksListener();
+
+      const posDocRef = window.doc(window.db, 'pjt_settings', currentPjt);
+      unbindPosListener = window.onSnapshot(posDocRef, (docSnap) => {
+        if (docSnap.exists() && docSnap.data().positions) {
+          const rawPos = docSnap.data().positions;
+          positions = rawPos.map(p => typeof p === 'string' ? { name: p, visible: true } : p);
+        } else {
+          positions = (currentPjt === '調理業務整理') 
+            ? ['仕込み1', '仕込み2', 'KC', 'KH', '目前'].map(n => ({ name: n, visible: true }))
+            : [];
+        }
+        renderPositions();
+        updatePositionSelectOptions();
+        renderAllTasks();
+        updateSummary();
+      });
+
+      const colRef = window.collection(window.db, `tasks_${currentPjt}`);
+      unbindTasksListener = window.onSnapshot(colRef, (snapshot) => {
+        const newTasks = [];
+        snapshot.forEach((doc) => newTasks.push({ id: doc.id, ...doc.data() }));
+
+        if (!isRemoteUpdating && tasks.length > 0) {
+          saveStateToUndoStack(tasks);
+        }
+
+        tasks = newTasks;
+        renderAllTasks();
+        updateSummary();
+        updateUndoRedoButtons();
+      });
+    }
+
+    // 左サイドバー PJT描写
+    function renderSidebarPjtList() {
+      const container = document.getElementById('pjt-list-container');
+      container.innerHTML = '';
+
+      projects.forEach((pjt, index) => {
+        const isSelected = pjt.name === currentPjt;
+        const isVisible = pjt.visible !== false;
+
+        const item = document.createElement('div');
+        item.className = `flex flex-col p-2 rounded text-xs font-bold transition ${
+          isSelected ? 'bg-emerald-600 text-white shadow' : 'bg-slate-700/60 text-slate-300'
+        } ${!isVisible ? 'opacity-50' : ''}`;
+
+        item.innerHTML = `
+          <div class="flex items-center justify-between">
+            <div class="flex items-center space-x-2 truncate flex-1 cursor-pointer" onclick="selectPjt('${pjt.name}')">
+              <i data-lucide="folder" class="w-3.5 h-3.5 ${isSelected ? 'text-white' : 'text-slate-400'}"></i>
+              <span class="truncate">${pjt.name}</span>
+            </div>
+            
+            <div class="flex items-center space-x-1">
+              <button onclick="movePjtOrder(${index}, -1)" ${index === 0 ? 'disabled' : ''} class="hover:text-amber-300 disabled:opacity-30 p-0.5">▲</button>
+              <button onclick="movePjtOrder(${index}, 1)" ${index === projects.length - 1 ? 'disabled' : ''} class="hover:text-amber-300 disabled:opacity-30 p-0.5">▼</button>
+              <button onclick="togglePjtVisibility(${index})" class="hover:text-yellow-300 p-0.5 ml-1">
+                <i data-lucide="${isVisible ? 'eye' : 'eye-off'}" class="w-3.5 h-3.5"></i>
+              </button>
+              <button onclick="editPjtName(${index})" class="hover:text-blue-300 p-0.5">
+                <i data-lucide="edit-2" class="w-3.5 h-3.5"></i>
+              </button>
+              ${projects.length > 1 ? `
+                <button onclick="removePjtFromSidebar(event, '${pjt.name}')" class="hover:text-red-400 p-0.5">
+                  <i data-lucide="trash-2" class="w-3.5 h-3.5"></i>
+                </button>
+              ` : ''}
+            </div>
+          </div>
+        `;
+
+        container.appendChild(item);
+      });
+      lucide.createIcons();
+    }
+
+    function selectPjt(pjtName) {
+      if (currentPjt === pjtName) return;
+      currentPjt = pjtName;
+      renderSidebarPjtList();
+      loadCurrentPjtData();
+    }
+
+    async function addNewPjtFromSidebar() {
+      const input = document.getElementById('sidebar-pjt-input');
+      const newPjtName = input.value.trim();
+      if (!newPjtName) return;
+
+      if (projects.some(p => p.name === newPjtName)) {
+        alert("そのPJT名は既に存在します。");
+        return;
+      }
+
+      const updated = [...projects, { id: 'pjt_' + Date.now(), name: newPjtName, visible: true }];
+      await window.setDoc(window.doc(window.db, 'settings', 'projects'), { list: updated });
+      await window.setDoc(window.doc(window.db, 'pjt_settings', newPjtName), { positions: [] });
+
+      input.value = '';
+      selectPjt(newPjtName);
+    }
+
+    async function movePjtOrder(index, direction) {
+      const targetIndex = index + direction;
+      if (targetIndex < 0 || targetIndex >= projects.length) return;
+
+      const temp = projects[index];
+      projects[index] = projects[targetIndex];
+      projects[targetIndex] = temp;
+
+      await window.setDoc(window.doc(window.db, 'settings', 'projects'), { list: projects });
+    }
+
+    async function togglePjtVisibility(index) {
+      projects[index].visible = !(projects[index].visible !== false);
+      await window.setDoc(window.doc(window.db, 'settings', 'projects'), { list: projects });
+    }
+
+    async function editPjtName(index) {
+      const oldName = projects[index].name;
+      const newName = prompt("新しいPJT名を入力してください:", oldName);
+      if (!newName || newName.trim() === '' || newName === oldName) return;
+
+      if (projects.some(p => p.name === newName)) {
+        alert("そのPJT名は既に使用されています。");
+        return;
+      }
+
+      projects[index].name = newName.trim();
+      await window.setDoc(window.doc(window.db, 'settings', 'projects'), { list: projects });
+
+      if (currentPjt === oldName) {
+        currentPjt = newName.trim();
+      }
+    }
+
+    async function removePjtFromSidebar(e, pjtName) {
+      e.stopPropagation();
+      if (confirm(`PJT「${pjtName}」とそのデータを削除しますか？`)) {
+        const updated = projects.filter(p => p.name !== pjtName);
+        await window.setDoc(window.doc(window.db, 'settings', 'projects'), { list: updated });
+        if (currentPjt === pjtName) {
+          selectPjt(updated[0].name);
+        }
+      }
+    }
+
+    // Undo / Redo
+    function saveStateToUndoStack(currentTasks) {
+      undoStack.push(JSON.parse(JSON.stringify(currentTasks)));
+      redoStack = [];
+      if (undoStack.length > 30) undoStack.shift();
+      updateUndoRedoButtons();
+    }
+
+    async function undo() {
+      if (undoStack.length === 0) return;
+      const previousState = undoStack.pop();
+      redoStack.push(JSON.parse(JSON.stringify(tasks)));
+      await syncFullStateToFirebase(previousState);
+      updateUndoRedoButtons();
+    }
+
+    async function redo() {
+      if (redoStack.length === 0) return;
+      const nextState = redoStack.pop();
+      undoStack.push(JSON.parse(JSON.stringify(tasks)));
+      await syncFullStateToFirebase(nextState);
+      updateUndoRedoButtons();
+    }
+
+    async function syncFullStateToFirebase(targetTasks) {
+      isRemoteUpdating = true;
+      const currentIds = tasks.map(t => t.id);
+      const targetIds = targetTasks.map(t => t.id);
+
+      for (const id of currentIds) {
+        if (!targetIds.includes(id)) {
+          await window.deleteDoc(window.doc(window.db, `tasks_${currentPjt}`, id));
+        }
+      }
+
+      for (const task of targetTasks) {
+        await window.setDoc(window.doc(window.db, `tasks_${currentPjt}`, task.id), task);
+      }
+      
+      setTimeout(() => { isRemoteUpdating = false; }, 300);
+    }
+
+    function updateUndoRedoButtons() {
+      const btnUndo = document.getElementById('btn-undo');
+      const btnRedo = document.getElementById('btn-redo');
+      if (btnUndo) btnUndo.disabled = undoStack.length === 0;
+      if (btnRedo) btnRedo.disabled = redoStack.length === 0;
+    }
+
+    function renderTimeHeader() {
+      const header = document.getElementById('time-header');
+      for (let h = 4; h < 22; h++) {
+        for (let m = 0; m < 60; m += 30) {
+          if (h === 4 && m < 30) continue;
+          const timeStr = `${String(h).padStart(2, '0')}:${String(m).padStart(2, '0')}`;
+          const cell = document.createElement('div');
+          cell.className = "flex-shrink-0 border-r border-gray-300 p-1 text-center font-semibold";
+          cell.style.width = `${30 * PIXELS_PER_MINUTE}px`;
+          cell.innerText = timeStr;
+          header.appendChild(cell);
+        }
+      }
+    }
+
+    function renderPositions() {
+      const container = document.getElementById('positions-container');
+      container.innerHTML = '';
+
+      const visiblePositions = positions.filter(p => p.visible !== false);
+
+      if (visiblePositions.length === 0) {
+        container.innerHTML = `
+          <div class="p-12 text-center text-gray-400">
+            <i data-lucide="layers" class="w-10 h-10 mx-auto mb-2 opacity-50"></i>
+            <p class="font-bold text-sm">表示可能なポジションがありません</p>
+            <p class="text-xs mt-1">右上ヘッダーの「ポジション管理」から追加または再表示してください</p>
+          </div>
+        `;
+        lucide.createIcons();
+        return;
+      }
+
+      visiblePositions.forEach(posObj => {
+        const pos = posObj.name;
+        const row = document.createElement('div');
+        row.className = "flex border-b border-gray-200 relative min-h-[52px] bg-white transition-all";
+        row.dataset.position = pos;
+
+        const label = document.createElement('div');
+        label.className = "w-32 flex-shrink-0 p-2 bg-gray-50 border-r border-gray-300 font-bold text-xs text-gray-700 sticky left-0 z-20 flex flex-col justify-center";
+        label.innerHTML = `<span>${pos}</span><span id="pos-time-${pos}" class="text-[10px] text-emerald-600 font-normal">0分</span>`;
+
+        const timeline = document.createElement('div');
+        timeline.className = "flex-1 relative task-lane cursor-pointer";
+        timeline.style.width = `${TOTAL_MINUTES * PIXELS_PER_MINUTE}px`;
+        
+        timeline.ondragover = (e) => e.preventDefault();
+        timeline.ondrop = (e) => handleDrop(e, pos);
+
+        // 【機能追記】 タイムラインの空白（時間帯）クリックでタスク追加
+        timeline.onclick = (e) => {
+          if (isResizing) return;
+          const rect = timeline.getBoundingClientRect();
+          const offsetX = e.clientX - rect.left;
+          const clickedMinutes = Math.max(0, Math.floor(offsetX / PIXELS_PER_MINUTE));
+          // 5分単位に丸める
+          const startMin = (START_HOUR * 60) + Math.floor(clickedMinutes / 5) * 5;
+          const startTimeStr = minutesToTime(startMin);
+
+          openAddTaskModalWithPreset(pos, startTimeStr);
+        };
+
+        row.appendChild(label);
+        row.appendChild(timeline);
+        container.appendChild(row);
+      });
+    }
+
+    function updatePositionSelectOptions() {
+      const select = document.getElementById('task-position');
+      if (!select) return;
+      select.innerHTML = '';
+      const visiblePositions = positions.filter(p => p.visible !== false);
+      if (visiblePositions.length === 0) {
+        select.innerHTML = '<option value="">(ポジションなし)</option>';
+        return;
+      }
+      visiblePositions.forEach(posObj => {
+        const opt = document.createElement('option');
+        opt.value = posObj.name;
+        opt.innerText = posObj.name;
+        select.appendChild(opt);
+      });
+    }
+
+    function computeTaskRows(posTasks) {
+      const sorted = [...posTasks].sort((a, b) => timeToMinutes(a.startTime) - timeToMinutes(b.startTime));
+      const rowEndTimes = [];
+      const layout = [];
+
+      sorted.forEach(task => {
+        const startMin = timeToMinutes(task.startTime);
+        const endMin = startMin + Number(task.duration);
+        
+        let rowIndex = rowEndTimes.findIndex(rowEnd => rowEnd <= startMin);
+        if (rowIndex === -1) {
+          rowIndex = rowEndTimes.length;
+          rowEndTimes.push(endMin);
+        } else {
+          rowEndTimes[rowIndex] = endMin;
+        }
+
+        layout.push({ task, rowIndex });
+      });
+
+      return { layout, totalRows: Math.max(1, rowEndTimes.length) };
+    }
+
+    function renderAllTasks() {
+      document.querySelectorAll('.task-lane').forEach(lane => lane.innerHTML = '');
+
+      const visiblePositions = positions.filter(p => p.visible !== false);
+
+      visiblePositions.forEach(posObj => {
+        const pos = posObj.name;
+        const posTasks = tasks.filter(t => t.position === pos);
+        const { layout, totalRows } = computeTaskRows(posTasks);
+        
+        const rowElement = document.querySelector(`[data-position="${pos}"]`);
+        if (!rowElement) return;
+
+        const lane = rowElement.querySelector('.task-lane');
+        const rowHeight = Math.max(52, totalRows * (BLOCK_HEIGHT + 4) + 10);
+        rowElement.style.height = `${rowHeight}px`;
+
+        layout.forEach(({ task, rowIndex }) => {
+          const block = document.createElement('div');
+          const leftPx = (timeToMinutes(task.startTime) - START_HOUR * 60) * PIXELS_PER_MINUTE;
+          const widthPx = Math.max(25, task.duration * PIXELS_PER_MINUTE);
+          const topPx = 6 + rowIndex * (BLOCK_HEIGHT + 4);
+          
+          let bgColor = "bg-emerald-100 border-emerald-400 text-emerald-900";
+          if (task.level === 'Lv2') bgColor = "bg-amber-100 border-amber-400 text-amber-900";
+          if (task.level === 'Lv3') bgColor = "bg-rose-100 border-rose-400 text-rose-900";
+
+          block.className = `absolute border rounded px-1.5 text-xs flex items-center justify-between shadow-sm cursor-pointer task-block ${bgColor} overflow-hidden`;
+          block.style.top = `${topPx}px`;
+          block.style.height = `${BLOCK_HEIGHT}px`;
+          block.style.left = `${leftPx}px`;
+          block.style.width = `${widthPx}px`;
+          block.draggable = true;
+
+          block.innerHTML = `
+            <div class="flex flex-col leading-tight overflow-hidden pr-2 pointer-events-none">
+              <span class="font-bold text-[11px] truncate">${task.dish}</span>
+              <span class="text-[10px] opacity-90 truncate">${task.name}</span>
+            </div>
+            <span class="text-[9px] font-mono opacity-75 bg-white/60 px-1 rounded flex-shrink-0 pointer-events-none duration-label">${task.duration}m</span>
+            <div class="resize-handle" title="ドラッグして時間を伸縮"></div>
+          `;
+
+          block.ondragstart = (e) => {
+            if (isResizing) { e.preventDefault(); return; }
+            e.dataTransfer.setData('text/plain', task.id);
+          };
+
+          block.onclick = (e) => {
+            if (isResizing) return;
+            e.stopPropagation();
+            openEditTaskModal(task);
+          };
+
+          const handle = block.querySelector('.resize-handle');
+          setupResize(handle, block, task);
+
+          lane.appendChild(block);
+        });
+      });
+    }
+
+    function setupResize(handle, block, task) {
+      handle.onmousedown = (e) => {
+        e.stopPropagation();
+        e.preventDefault();
+        isResizing = true;
+
+        const startX = e.clientX;
+        const initialWidth = block.offsetWidth;
+        const durationLabel = block.querySelector('.duration-label');
+        let newDuration = task.duration;
+
+        const onMouseMove = (moveEvent) => {
+          const deltaX = moveEvent.clientX - startX;
+          const newWidthPx = Math.max(18, initialWidth + deltaX);
+          newDuration = Math.max(1, Math.round(newWidthPx / PIXELS_PER_MINUTE));
+          
+          block.style.width = `${newDuration * PIXELS_PER_MINUTE}px`;
+          if (durationLabel) durationLabel.innerText = `${newDuration}m`;
+        };
+
+        const onMouseUp = async () => {
+          document.removeEventListener('mousemove', onMouseMove);
+          document.removeEventListener('mouseup', onMouseUp);
+          setTimeout(() => { isResizing = false; }, 100);
+
+          if (newDuration !== task.duration) {
+            await window.setDoc(window.doc(window.db, `tasks_${currentPjt}`, task.id), {
+              ...task,
+              duration: newDuration
+            });
+          }
+        };
+
+        document.addEventListener('mousemove', onMouseMove);
+        document.addEventListener('mouseup', onMouseUp);
+      };
+    }
+
+    async function handleDrop(e, targetPosition) {
+      e.preventDefault();
+      if (isResizing) return;
+
+      const taskId = e.dataTransfer.getData('text/plain');
+      const task = tasks.find(t => t.id === taskId);
+      if (!task) return;
+
+      const rect = e.currentTarget.getBoundingClientRect();
+      const offsetX = e.clientX - rect.left;
+      const droppedMinutes = Math.max(0, Math.floor(offsetX / PIXELS_PER_MINUTE));
+      const newStartMinutes = (START_HOUR * 60) + droppedMinutes;
+      const newStartTime = minutesToTime(newStartMinutes);
+
+      await window.setDoc(window.doc(window.db, `tasks_${currentPjt}`, taskId), {
+        ...task,
+        position: targetPosition,
+        startTime: newStartTime
+      });
+    }
+
+    function updateSummary() {
+      const list = document.getElementById('summary-list');
+      list.innerHTML = '';
+
+      const visiblePositions = positions.filter(p => p.visible !== false);
+
+      if (visiblePositions.length === 0) {
+        list.innerHTML = '<p class="text-xs text-gray-400 text-center py-4">表示中のポジションはありません</p>';
+        return;
+      }
+
+      visiblePositions.forEach(posObj => {
+        const pos = posObj.name;
+        const posTasks = tasks.filter(t => t.position === pos);
+        const totalMin = posTasks.reduce((sum, t) => sum + Number(t.duration), 0);
+        
+        const labelTime = document.getElementById(`pos-time-${pos}`);
+        if (labelTime) labelTime.innerText = `${totalMin}分`;
+
+        const item = document.createElement('div');
+        item.className = "bg-white p-2.5 rounded border border-gray-200 shadow-sm text-xs";
+        item.innerHTML = `
+          <div class="flex justify-between font-bold text-gray-700 mb-1">
+            <span>${pos}</span>
+            <span class="text-emerald-600">${totalMin} 分</span>
+          </div>
+          <div class="w-full bg-gray-200 h-2 rounded-full overflow-hidden flex">
+            <div class="bg-emerald-500 h-full" style="width: ${Math.min(100, (totalMin/480)*100)}%"></div>
+          </div>
+        `;
+        list.appendChild(item);
+      });
+    }
+
+    // ポジション管理モーダル
+    function openPositionModal() {
+      renderPositionManageList();
+      document.getElementById('position-modal').classList.remove('hidden');
+    }
+    function closePositionModal() {
+      document.getElementById('position-modal').classList.add('hidden');
+    }
+
+    function renderPositionManageList() {
+      const listDiv = document.getElementById('position-manage-list');
+      listDiv.innerHTML = '';
+
+      if (positions.length === 0) {
+        listDiv.innerHTML = '<p class="text-xs text-gray-400 py-2 text-center">ポジションが登録されていません</p>';
+        return;
+      }
+
+      positions.forEach((posObj, index) => {
+        const isVisible = posObj.visible !== false;
+        const item = document.createElement('div');
+        item.className = `flex items-center justify-between bg-gray-50 p-2 rounded border border-gray-200 text-xs ${!isVisible ? 'opacity-50' : ''}`;
+
+        item.innerHTML = `
+          <span class="font-bold text-gray-700 truncate w-32">${posObj.name}</span>
+          
+          <div class="flex items-center space-x-1">
+            <button onclick="movePositionOrder(${index}, -1)" ${index === 0 ? 'disabled' : ''} class="hover:text-emerald-600 font-bold px-1 disabled:opacity-30">▲</button>
+            <button onclick="movePositionOrder(${index}, 1)" ${index === positions.length - 1 ? 'disabled' : ''} class="hover:text-emerald-600 font-bold px-1 disabled:opacity-30">▼</button>
+            
+            <button onclick="togglePositionVisibility(${index})" class="text-gray-600 hover:text-emerald-600 font-bold px-1.5 py-0.5 rounded border bg-white">
+              <i data-lucide="${isVisible ? 'eye' : 'eye-off'}" class="w-3.5 h-3.5"></i>
+            </button>
+
+            <button onclick="editPositionName(${index})" class="text-blue-600 hover:text-blue-800 font-bold px-1.5 py-0.5 rounded border bg-white">編集</button>
+
+            <button onclick="removePosition('${posObj.name}')" class="text-red-500 hover:text-red-700 font-bold px-1.5 py-0.5 rounded hover:bg-red-50">削除</button>
+          </div>
+        `;
+        listDiv.appendChild(item);
+      });
+      lucide.createIcons();
+    }
+
+    async function addNewPosition() {
+      const nameInput = document.getElementById('new-pos-name');
+      const newPosName = nameInput.value.trim();
+      if (!newPosName) return;
+
+      if (positions.some(p => p.name === newPosName)) {
+        alert("そのポジション名は既に存在します。");
+        return;
+      }
+
+      const updatedPositions = [...positions, { name: newPosName, visible: true }];
+      await window.setDoc(window.doc(window.db, 'pjt_settings', currentPjt), { positions: updatedPositions });
+      nameInput.value = '';
+      renderPositionManageList();
+    }
+
+    async function movePositionOrder(index, direction) {
+      const targetIndex = index + direction;
+      if (targetIndex < 0 || targetIndex >= positions.length) return;
+
+      const temp = positions[index];
+      positions[index] = positions[targetIndex];
+      positions[targetIndex] = temp;
+
+      await window.setDoc(window.doc(window.db, 'pjt_settings', currentPjt), { positions: positions });
+      renderPositionManageList();
+    }
+
+    async function togglePositionVisibility(index) {
+      positions[index].visible = !(positions[index].visible !== false);
+      await window.setDoc(window.doc(window.db, 'pjt_settings', currentPjt), { positions: positions });
+      renderPositionManageList();
+    }
+
+    async function editPositionName(index) {
+      const oldName = positions[index].name;
+      const newName = prompt("新しいポジション名を入力してください:", oldName);
+      if (!newName || newName.trim() === '' || newName === oldName) return;
+
+      if (positions.some(p => p.name === newName)) {
+        alert("そのポジション名は既に使用されています。");
+        return;
+      }
+
+      const updatedName = newName.trim();
+      positions[index].name = updatedName;
+
+      for (const task of tasks) {
+        if (task.position === oldName) {
+          await window.setDoc(window.doc(window.db, `tasks_${currentPjt}`, task.id), {
+            ...task,
+            position: updatedName
+          });
+        }
+      }
+
+      await window.setDoc(window.doc(window.db, 'pjt_settings', currentPjt), { positions: positions });
+      renderPositionManageList();
+    }
+
+    async function removePosition(posName) {
+      const posTasks = tasks.filter(t => t.position === posName);
+      if (posTasks.length > 0) {
+        alert(`ポジション「${posName}」にはまだ ${posTasks.length} 件のタスクが存在するため削除できません。タスクを移動または削除してください。`);
+        return;
+      }
+
+      if (confirm(`ポジション「${posName}」を削除しますか？`)) {
+        const updatedPositions = positions.filter(p => p.name !== posName);
+        await window.setDoc(window.doc(window.db, 'pjt_settings', currentPjt), { positions: updatedPositions });
+        renderPositionManageList();
+      }
+    }
+
+    // 通常のタスク追加モーダル
+    function openAddTaskModal() {
+      const visiblePositions = positions.filter(p => p.visible !== false);
+      if (visiblePositions.length === 0) {
+        alert("タスクを追加する前に、まず「ポジション管理」からポジションを作成または表示状態にしてください。");
+        openPositionModal();
+        return;
+      }
+      openAddTaskModalWithPreset(visiblePositions[0].name, "07:00");
+    }
+
+    // タイムラインクリック時の事前プリセット用モーダル表示
+    function openAddTaskModalWithPreset(targetPosition, startTimeStr) {
+      document.getElementById('modal-title').innerText = "調理タスクの作成";
+      document.getElementById('task-id').value = "";
+      document.getElementById('task-dish').value = "";
+      document.getElementById('task-name').value = "";
+      document.getElementById('task-position').value = targetPosition;
+      document.getElementById('task-level').value = "Lv1";
+      document.getElementById('task-start').value = startTimeStr || "07:00";
+      document.getElementById('task-duration').value = "10";
+      document.getElementById('delete-btn').classList.add('hidden');
+      document.getElementById('duplicate-btn').classList.add('hidden');
+      document.getElementById('task-modal').classList.remove('hidden');
+    }
+
+    function openEditTaskModal(task) {
+      document.getElementById('modal-title').innerText = "調理タスクの編集";
+      document.getElementById('task-id').value = task.id;
+      document.getElementById('task-dish').value = task.dish || "";
+      document.getElementById('task-name').value = task.name || "";
+      document.getElementById('task-position').value = task.position || positions[0]?.name;
+      document.getElementById('task-level').value = task.level || "Lv1";
+      document.getElementById('task-start').value = task.startTime || "07:00";
+      document.getElementById('task-duration').value = task.duration || 10;
+      document.getElementById('delete-btn').classList.remove('hidden');
+      document.getElementById('duplicate-btn').classList.remove('hidden');
+      document.getElementById('task-modal').classList.remove('hidden');
+    }
+
+    function closeTaskModal() {
+      document.getElementById('task-modal').classList.add('hidden');
+    }
+    
+    async function saveTask(e) {
+      e.preventDefault();
+      const taskId = document.getElementById('task-id').value || ('task_' + Date.now());
+      const updatedTask = {
+        dish: document.getElementById('task-dish').value,
+        name: document.getElementById('task-name').value,
+        position: document.getElementById('task-position').value,
+        level: document.getElementById('task-level').value,
+        startTime: document.getElementById('task-start').value,
+        duration: Number(document.getElementById('task-duration').value)
+      };
+
+      await window.setDoc(window.doc(window.db, `tasks_${currentPjt}`, taskId), updatedTask);
+      closeTaskModal();
+    }
+
+    // 【機能追記】 タスクの複製
+    async function duplicateCurrentTask() {
+      const newId = 'task_' + Date.now();
+      const dupTask = {
+        dish: document.getElementById('task-dish').value + " (コピー)",
+        name: document.getElementById('task-name').value,
+        position: document.getElementById('task-position').value,
+        level: document.getElementById('task-level').value,
+        startTime: document.getElementById('task-start').value,
+        duration: Number(document.getElementById('task-duration').value)
+      };
+
+      await window.setDoc(window.doc(window.db, `tasks_${currentPjt}`, newId), dupTask);
+      closeTaskModal();
+    }
+
+    async function deleteCurrentTask() {
+      const taskId = document.getElementById('task-id').value;
+      if (taskId && confirm("このタスクを削除してもよろしいですか？")) {
+        await window.deleteDoc(window.doc(window.db, `tasks_${currentPjt}`, taskId));
+        closeTaskModal();
+      }
+    }
+
+    function timeToMinutes(timeStr) {
+      const [h, m] = timeStr.split(':').map(Number);
+      return h * 60 + m;
+    }
+    function minutesToTime(mins) {
+      const h = Math.floor(mins / 60);
+      const m = mins % 60;
+      return `${String(h).padStart(2, '0')}:${String(m).padStart(2, '0')}`;
+    }
+  </script>
+</body>
+</html>
