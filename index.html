@@ -298,7 +298,6 @@
   </div>
 
   <script>
-    // 時間軸設定: 04:00 〜 23:00 (19時間 = 1140分)
     const START_HOUR = 4.0;
     const END_HOUR = 23.0;
     const TOTAL_MINUTES = (END_HOUR - START_HOUR) * 60;
@@ -314,6 +313,14 @@
       { id: 'Lv1', name: '基本', color: 'emerald' },
       { id: 'Lv2', name: '中級', color: 'amber' },
       { id: 'Lv3', name: '熟練', color: 'rose' }
+    ];
+
+    const DEFAULT_POSITIONS_SET = [
+      { name: '仕込み1', visible: true },
+      { name: '仕込み2', visible: true },
+      { name: 'KC', visible: true },
+      { name: 'KH', visible: true },
+      { name: '目前', visible: true }
     ];
 
     let isResizing = false;
@@ -369,7 +376,6 @@
 
     // Firebase リアルタイム同期開始
     function startRealtimeSync() {
-      // レベル設定の監視
       const levelDocRef = window.doc(window.db, 'settings', 'levels');
       unbindLevelListener = window.onSnapshot(levelDocRef, (docSnap) => {
         if (docSnap.exists() && docSnap.data().list) {
@@ -379,7 +385,6 @@
         renderAllTasks();
       });
 
-      // PJT一覧の監視
       const pjtDocRef = window.doc(window.db, 'settings', 'projects');
       window.onSnapshot(pjtDocRef, (docSnap) => {
         if (docSnap.exists() && docSnap.data().list) {
@@ -395,7 +400,7 @@
     }
 
     // PJT選択と読み込み
-    function loadCurrentPjtData() {
+    async function loadCurrentPjtData() {
       document.getElementById('summary-pjt-title').innerText = currentPjt;
       undoStack = [];
       redoStack = [];
@@ -405,14 +410,17 @@
       if (unbindTasksListener) unbindTasksListener();
 
       const posDocRef = window.doc(window.db, 'pjt_settings', currentPjt);
-      unbindPosListener = window.onSnapshot(posDocRef, (docSnap) => {
-        if (docSnap.exists() && docSnap.data().positions) {
+      unbindPosListener = window.onSnapshot(posDocRef, async (docSnap) => {
+        if (docSnap.exists() && docSnap.data().positions && docSnap.data().positions.length > 0) {
           const rawPos = docSnap.data().positions;
           positions = rawPos.map(p => typeof p === 'string' ? { name: p, visible: true } : p);
         } else {
-          positions = (currentPjt === '調理業務整理') 
-            ? ['仕込み1', '仕込み2', 'KC', 'KH', '目前'].map(n => ({ name: n, visible: true }))
-            : [];
+          if (currentPjt === '調理業務整理') {
+            positions = JSON.parse(JSON.stringify(DEFAULT_POSITIONS_SET));
+            await window.setDoc(posDocRef, { positions: positions });
+          } else {
+            positions = [];
+          }
         }
         renderPositions();
         updatePositionSelectOptions();
@@ -421,7 +429,7 @@
       });
 
       const colRef = window.collection(window.db, `tasks_${currentPjt}`);
-      unbindTasksListener = window.onSnapshot(colRef, (snapshot) => {
+      unbindTasksListener = window.onSnapshot(colRef, async (snapshot) => {
         const newTasks = [];
         snapshot.forEach((doc) => newTasks.push({ id: doc.id, ...doc.data() }));
 
@@ -436,7 +444,6 @@
       });
     }
 
-    // PJT描画
     function renderSidebarPjtList() {
       const container = document.getElementById('pjt-list-container');
       container.innerHTML = '';
@@ -599,7 +606,6 @@
       if (btnRedo) btnRedo.disabled = redoStack.length === 0;
     }
 
-    // 04:00 〜 23:00 の時間ヘッダー
     function renderTimeHeader() {
       const header = document.getElementById('time-header');
       header.innerHTML = '<div class="w-32 flex-shrink-0 p-2 bg-gray-200 border-r border-gray-300 text-center sticky left-0 z-30">ポジション</div>';
@@ -651,7 +657,6 @@
         timeline.ondragover = (e) => e.preventDefault();
         timeline.ondrop = (e) => handleDrop(e, pos);
 
-        // 空白エリアクリックで新規作成
         timeline.onclick = (e) => {
           if (isResizing) return;
           const rect = timeline.getBoundingClientRect();
@@ -698,6 +703,7 @@
       });
     }
 
+    // 時間被りタスクの自動段分けロジック
     function computeTaskRows(posTasks) {
       const sorted = [...posTasks].sort((a, b) => timeToMinutes(a.startTime) - timeToMinutes(b.startTime));
       const rowEndTimes = [];
@@ -721,7 +727,6 @@
       return { layout, totalRows: Math.max(1, rowEndTimes.length) };
     }
 
-    // レベルの色クラスマップ
     function getLevelColorClasses(levelId) {
       const lvl = levels.find(l => l.id === levelId);
       const color = lvl ? lvl.color : 'emerald';
@@ -750,7 +755,7 @@
         if (!rowElement) return;
 
         const lane = rowElement.querySelector('.task-lane');
-        const rowHeight = Math.max(52, totalRows * (BLOCK_HEIGHT + 4) + 10);
+        const rowHeight = Math.max(52, totalRows * (BLOCK_HEIGHT + 4) + 12);
         rowElement.style.height = `${rowHeight}px`;
 
         layout.forEach(({ task, rowIndex }) => {
