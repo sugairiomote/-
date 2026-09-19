@@ -140,6 +140,9 @@
         <button id="btn-redo" onclick="redo()" disabled class="bg-emerald-800 hover:bg-emerald-900 disabled:opacity-40 text-white text-xs px-2.5 py-1.5 rounded flex items-center gap-1 border border-emerald-600">
           <i data-lucide="redo" class="w-3.5 h-3.5"></i> 進む
         </button>
+        <button onclick="openLevelModal()" class="bg-emerald-800 hover:bg-emerald-900 text-white text-xs px-3 py-1.5 rounded flex items-center gap-1 border border-emerald-600">
+          <i data-lucide="award" class="w-3.5 h-3.5"></i> レベル管理
+        </button>
         <button onclick="openPositionModal()" class="bg-emerald-800 hover:bg-emerald-900 text-white text-xs px-3 py-1.5 rounded flex items-center gap-1 border border-emerald-600">
           <i data-lucide="layers" class="w-3.5 h-3.5"></i> ポジション管理
         </button>
@@ -152,10 +155,9 @@
       </div>
     </header>
 
-    <!-- メインエリア（左 PJT管理 ＋ 中央 タイムライン ＋ 右 集計） -->
+    <!-- メインエリア -->
     <div class="flex-1 flex overflow-hidden">
-      
-      <!-- 【左サイドバー】 PJT管理 -->
+      <!-- 左サイドバー PJT管理 -->
       <div class="w-64 bg-slate-800 text-white border-r border-slate-700 p-3 flex flex-col flex-shrink-0 shadow-lg">
         <div class="flex items-center justify-between border-b border-slate-700 pb-2 mb-3">
           <h2 class="text-xs font-bold text-slate-300 uppercase tracking-wider flex items-center gap-1.5">
@@ -163,7 +165,6 @@
           </h2>
         </div>
 
-        <!-- PJT新規追加 -->
         <div class="mb-3">
           <div class="flex space-x-1">
             <input type="text" id="sidebar-pjt-input" placeholder="新規PJT名を入力" class="w-full p-1.5 bg-slate-700 border border-slate-600 text-white rounded text-xs outline-none focus:border-emerald-500">
@@ -173,26 +174,24 @@
           </div>
         </div>
 
-        <!-- PJTリスト -->
         <div class="flex-1 overflow-y-auto space-y-1.5 pr-1" id="pjt-list-container"></div>
       </div>
 
-      <!-- 【中央】 タイムラインエリア -->
+      <!-- 中央 タイムラインエリア (04:00〜23:00) -->
       <div class="flex-1 flex flex-col overflow-auto relative bg-white excel-grid" id="timeline-container">
-        <div class="sticky top-0 z-20 flex bg-gray-100 border-b border-gray-300 font-mono text-xs font-bold text-gray-700" id="time-header" style="min-width: 1800px;">
+        <div class="sticky top-0 z-20 flex bg-gray-100 border-b border-gray-300 font-mono text-xs font-bold text-gray-700" id="time-header" style="min-width: 2052px;">
           <div class="w-32 flex-shrink-0 p-2 bg-gray-200 border-r border-gray-300 text-center sticky left-0 z-30">ポジション</div>
         </div>
-        <div id="positions-container" class="flex-1" style="min-width: 1800px;"></div>
+        <div id="positions-container" class="flex-1" style="min-width: 2052px;"></div>
       </div>
 
-      <!-- 【右サイドバー】 集計サマリー -->
+      <!-- 右サイドバー 集計サマリー -->
       <div class="w-64 bg-slate-50 border-l border-gray-300 p-4 overflow-y-auto flex-shrink-0 shadow-inner">
         <h3 class="font-bold text-gray-700 mb-3 flex items-center gap-1.5 border-b pb-2 text-sm">
           <i data-lucide="bar-chart-3" class="w-4 h-4 text-emerald-600"></i> <span id="summary-pjt-title">調理業務整理</span> の合計時間
         </h3>
         <div id="summary-list" class="space-y-3"></div>
       </div>
-
     </div>
   </div>
 
@@ -218,11 +217,7 @@
             </div>
             <div>
               <label class="block font-bold text-gray-600 mb-1">レベル</label>
-              <select id="task-level" class="w-full p-2 border rounded bg-white">
-                <option value="Lv1">Lv1 (基本)</option>
-                <option value="Lv2">Lv2 (中級)</option>
-                <option value="Lv3">Lv3 (熟練)</option>
-              </select>
+              <select id="task-level" class="w-full p-2 border rounded bg-white" required></select>
             </div>
           </div>
           <div class="grid grid-cols-2 gap-2">
@@ -238,14 +233,8 @@
         </div>
         <div class="flex justify-between items-center mt-6">
           <div class="flex space-x-1.5">
-            <!-- 削除ボタン -->
-            <button type="button" id="delete-btn" onclick="deleteCurrentTask()" class="px-3 py-1.5 bg-red-100 hover:bg-red-200 text-red-700 rounded text-xs font-bold hidden">
-              削除
-            </button>
-            <!-- 複製ボタン -->
-            <button type="button" id="duplicate-btn" onclick="duplicateCurrentTask()" class="px-3 py-1.5 bg-blue-100 hover:bg-blue-200 text-blue-700 rounded text-xs font-bold hidden">
-              複製
-            </button>
+            <button type="button" id="delete-btn" onclick="deleteCurrentTask()" class="px-3 py-1.5 bg-red-100 hover:bg-red-200 text-red-700 rounded text-xs font-bold hidden">削除</button>
+            <button type="button" id="duplicate-btn" onclick="duplicateCurrentTask()" class="px-3 py-1.5 bg-blue-100 hover:bg-blue-200 text-blue-700 rounded text-xs font-bold hidden">複製</button>
           </div>
           <div class="flex space-x-2 ml-auto">
             <button type="button" onclick="closeTaskModal()" class="px-3 py-1.5 bg-gray-200 hover:bg-gray-300 text-gray-700 rounded text-xs font-bold">キャンセル</button>
@@ -256,11 +245,10 @@
     </div>
   </div>
 
-  <!-- ポジション追加・管理 モーダル -->
+  <!-- ポジション管理 モーダル -->
   <div id="position-modal" class="fixed inset-0 bg-black/50 flex items-center justify-center z-50 hidden">
     <div class="bg-white p-6 rounded-lg shadow-xl w-[480px]">
       <h3 class="text-base font-bold text-gray-800 mb-3">ポジション管理（順序変更・編集・表示切替）</h3>
-      
       <div class="mb-4">
         <label class="block text-xs font-bold text-gray-600 mb-1">新規ポジション追加</label>
         <div class="flex space-x-2">
@@ -268,21 +256,51 @@
           <button onclick="addNewPosition()" class="bg-emerald-600 hover:bg-emerald-700 text-white text-xs px-3 py-2 rounded font-bold">追加</button>
         </div>
       </div>
-
       <div class="border-t pt-3">
         <label class="block text-xs font-bold text-gray-600 mb-2">ポジション一覧</label>
         <div id="position-manage-list" class="space-y-2 max-h-60 overflow-y-auto pr-1"></div>
       </div>
-
       <div class="flex justify-end mt-5">
         <button onclick="closePositionModal()" class="px-4 py-1.5 bg-gray-200 hover:bg-gray-300 text-gray-700 rounded text-xs font-bold">閉じる</button>
       </div>
     </div>
   </div>
 
+  <!-- レベル管理 モーダル -->
+  <div id="level-modal" class="fixed inset-0 bg-black/50 flex items-center justify-center z-50 hidden">
+    <div class="bg-white p-6 rounded-lg shadow-xl w-[480px]">
+      <h3 class="text-base font-bold text-gray-800 mb-3">レベル設定・管理（自己編集）</h3>
+      <div class="space-y-2 mb-4 bg-gray-50 p-3 rounded border border-gray-200">
+        <label class="block text-xs font-bold text-gray-600">新規レベル追加</label>
+        <div class="grid grid-cols-3 gap-2">
+          <input type="text" id="new-level-id" placeholder="ID (例: Lv4)" class="p-1.5 border rounded text-xs outline-none">
+          <input type="text" id="new-level-name" placeholder="説明 (例: エキスパート)" class="p-1.5 border rounded text-xs outline-none">
+          <select id="new-level-color" class="p-1.5 border rounded text-xs bg-white">
+            <option value="emerald">緑 (基本)</option>
+            <option value="amber">黄 (中級)</option>
+            <option value="rose">赤 (熟練)</option>
+            <option value="blue">青 (指導)</option>
+            <option value="purple">紫 (特殊)</option>
+          </select>
+        </div>
+        <button onclick="addNewLevel()" class="w-full bg-emerald-600 hover:bg-emerald-700 text-white text-xs py-1.5 rounded font-bold mt-1">追加</button>
+      </div>
+
+      <div class="border-t pt-3">
+        <label class="block text-xs font-bold text-gray-600 mb-2">設定済みレベル一覧</label>
+        <div id="level-manage-list" class="space-y-2 max-h-52 overflow-y-auto pr-1"></div>
+      </div>
+
+      <div class="flex justify-end mt-5">
+        <button onclick="closeLevelModal()" class="px-4 py-1.5 bg-gray-200 hover:bg-gray-300 text-gray-700 rounded text-xs font-bold">閉じる</button>
+      </div>
+    </div>
+  </div>
+
   <script>
-    const START_HOUR = 4.5;
-    const END_HOUR = 22;
+    // 時間軸設定: 04:00 〜 23:00 (19時間 = 1140分)
+    const START_HOUR = 4.0;
+    const END_HOUR = 23.0;
     const TOTAL_MINUTES = (END_HOUR - START_HOUR) * 60;
     const PIXELS_PER_MINUTE = 1.8;
     const BLOCK_HEIGHT = 38;
@@ -292,14 +310,20 @@
 
     let positions = [];
     let tasks = [];
-    let isResizing = false;
+    let levels = [
+      { id: 'Lv1', name: '基本', color: 'emerald' },
+      { id: 'Lv2', name: '中級', color: 'amber' },
+      { id: 'Lv3', name: '熟練', color: 'rose' }
+    ];
 
+    let isResizing = false;
     let undoStack = [];
     let redoStack = [];
     let isRemoteUpdating = false;
 
     let unbindTasksListener = null;
     let unbindPosListener = null;
+    let unbindLevelListener = null;
 
     window.onload = () => {
       lucide.createIcons();
@@ -345,6 +369,17 @@
 
     // Firebase リアルタイム同期開始
     function startRealtimeSync() {
+      // レベル設定の監視
+      const levelDocRef = window.doc(window.db, 'settings', 'levels');
+      unbindLevelListener = window.onSnapshot(levelDocRef, (docSnap) => {
+        if (docSnap.exists() && docSnap.data().list) {
+          levels = docSnap.data().list;
+        }
+        updateLevelSelectOptions();
+        renderAllTasks();
+      });
+
+      // PJT一覧の監視
       const pjtDocRef = window.doc(window.db, 'settings', 'projects');
       window.onSnapshot(pjtDocRef, (docSnap) => {
         if (docSnap.exists() && docSnap.data().list) {
@@ -401,7 +436,7 @@
       });
     }
 
-    // 左サイドバー PJT描写
+    // PJT描画
     function renderSidebarPjtList() {
       const container = document.getElementById('pjt-list-container');
       container.innerHTML = '';
@@ -564,11 +599,13 @@
       if (btnRedo) btnRedo.disabled = redoStack.length === 0;
     }
 
+    // 04:00 〜 23:00 の時間ヘッダー
     function renderTimeHeader() {
       const header = document.getElementById('time-header');
-      for (let h = 4; h < 22; h++) {
+      header.innerHTML = '<div class="w-32 flex-shrink-0 p-2 bg-gray-200 border-r border-gray-300 text-center sticky left-0 z-30">ポジション</div>';
+      
+      for (let h = 4; h < 23; h++) {
         for (let m = 0; m < 60; m += 30) {
-          if (h === 4 && m < 30) continue;
           const timeStr = `${String(h).padStart(2, '0')}:${String(m).padStart(2, '0')}`;
           const cell = document.createElement('div');
           cell.className = "flex-shrink-0 border-r border-gray-300 p-1 text-center font-semibold";
@@ -614,13 +651,12 @@
         timeline.ondragover = (e) => e.preventDefault();
         timeline.ondrop = (e) => handleDrop(e, pos);
 
-        // 【機能追記】 タイムラインの空白（時間帯）クリックでタスク追加
+        // 空白エリアクリックで新規作成
         timeline.onclick = (e) => {
           if (isResizing) return;
           const rect = timeline.getBoundingClientRect();
           const offsetX = e.clientX - rect.left;
           const clickedMinutes = Math.max(0, Math.floor(offsetX / PIXELS_PER_MINUTE));
-          // 5分単位に丸める
           const startMin = (START_HOUR * 60) + Math.floor(clickedMinutes / 5) * 5;
           const startTimeStr = minutesToTime(startMin);
 
@@ -650,6 +686,18 @@
       });
     }
 
+    function updateLevelSelectOptions() {
+      const select = document.getElementById('task-level');
+      if (!select) return;
+      select.innerHTML = '';
+      levels.forEach(lvl => {
+        const opt = document.createElement('option');
+        opt.value = lvl.id;
+        opt.innerText = `${lvl.id} (${lvl.name})`;
+        select.appendChild(opt);
+      });
+    }
+
     function computeTaskRows(posTasks) {
       const sorted = [...posTasks].sort((a, b) => timeToMinutes(a.startTime) - timeToMinutes(b.startTime));
       const rowEndTimes = [];
@@ -671,6 +719,21 @@
       });
 
       return { layout, totalRows: Math.max(1, rowEndTimes.length) };
+    }
+
+    // レベルの色クラスマップ
+    function getLevelColorClasses(levelId) {
+      const lvl = levels.find(l => l.id === levelId);
+      const color = lvl ? lvl.color : 'emerald';
+
+      const map = {
+        emerald: "bg-emerald-100 border-emerald-400 text-emerald-900",
+        amber: "bg-amber-100 border-amber-400 text-amber-900",
+        rose: "bg-rose-100 border-rose-400 text-rose-900",
+        blue: "bg-blue-100 border-blue-400 text-blue-900",
+        purple: "bg-purple-100 border-purple-400 text-purple-900"
+      };
+      return map[color] || map.emerald;
     }
 
     function renderAllTasks() {
@@ -696,9 +759,7 @@
           const widthPx = Math.max(25, task.duration * PIXELS_PER_MINUTE);
           const topPx = 6 + rowIndex * (BLOCK_HEIGHT + 4);
           
-          let bgColor = "bg-emerald-100 border-emerald-400 text-emerald-900";
-          if (task.level === 'Lv2') bgColor = "bg-amber-100 border-amber-400 text-amber-900";
-          if (task.level === 'Lv3') bgColor = "bg-rose-100 border-rose-400 text-rose-900";
+          const bgColor = getLevelColorClasses(task.level);
 
           block.className = `absolute border rounded px-1.5 text-xs flex items-center justify-between shadow-sm cursor-pointer task-block ${bgColor} overflow-hidden`;
           block.style.top = `${topPx}px`;
@@ -828,6 +889,72 @@
       });
     }
 
+    // レベル管理モーダル
+    function openLevelModal() {
+      renderLevelManageList();
+      document.getElementById('level-modal').classList.remove('hidden');
+    }
+    function closeLevelModal() {
+      document.getElementById('level-modal').classList.add('hidden');
+    }
+
+    function renderLevelManageList() {
+      const listDiv = document.getElementById('level-manage-list');
+      listDiv.innerHTML = '';
+
+      levels.forEach((lvl, index) => {
+        const item = document.createElement('div');
+        item.className = "flex items-center justify-between bg-gray-50 p-2 rounded border border-gray-200 text-xs";
+        item.innerHTML = `
+          <div class="flex items-center space-x-2">
+            <span class="font-bold border px-1.5 py-0.5 rounded ${getLevelColorClasses(lvl.id)}">${lvl.id}</span>
+            <span class="text-gray-700">${lvl.name}</span>
+          </div>
+          <button onclick="removeLevel(${index})" class="text-red-500 hover:text-red-700 font-bold px-1.5 py-0.5 rounded hover:bg-red-50">削除</button>
+        `;
+        listDiv.appendChild(item);
+      });
+    }
+
+    async function addNewLevel() {
+      const idInput = document.getElementById('new-level-id');
+      const nameInput = document.getElementById('new-level-name');
+      const colorSelect = document.getElementById('new-level-color');
+
+      const lvlId = idInput.value.trim();
+      const lvlName = nameInput.value.trim() || lvlId;
+      const lvlColor = colorSelect.value;
+
+      if (!lvlId) {
+        alert("レベルIDを入力してください (例: Lv4)");
+        return;
+      }
+
+      if (levels.some(l => l.id === lvlId)) {
+        alert("そのレベルIDは既に存在します。");
+        return;
+      }
+
+      const updatedLevels = [...levels, { id: lvlId, name: lvlName, color: lvlColor }];
+      await window.setDoc(window.doc(window.db, 'settings', 'levels'), { list: updatedLevels });
+
+      idInput.value = '';
+      nameInput.value = '';
+      renderLevelManageList();
+    }
+
+    async function removeLevel(index) {
+      if (levels.length <= 1) {
+        alert("最低1つのレベル設定が必要です。");
+        return;
+      }
+      if (confirm(`レベル「${levels[index].id}」を削除しますか？`)) {
+        const updatedLevels = levels.filter((_, i) => i !== index);
+        await window.setDoc(window.doc(window.db, 'settings', 'levels'), { list: updatedLevels });
+        renderLevelManageList();
+      }
+    }
+
     // ポジション管理モーダル
     function openPositionModal() {
       renderPositionManageList();
@@ -946,7 +1073,6 @@
       }
     }
 
-    // 通常のタスク追加モーダル
     function openAddTaskModal() {
       const visiblePositions = positions.filter(p => p.visible !== false);
       if (visiblePositions.length === 0) {
@@ -957,14 +1083,13 @@
       openAddTaskModalWithPreset(visiblePositions[0].name, "07:00");
     }
 
-    // タイムラインクリック時の事前プリセット用モーダル表示
     function openAddTaskModalWithPreset(targetPosition, startTimeStr) {
       document.getElementById('modal-title').innerText = "調理タスクの作成";
       document.getElementById('task-id').value = "";
       document.getElementById('task-dish').value = "";
       document.getElementById('task-name').value = "";
       document.getElementById('task-position').value = targetPosition;
-      document.getElementById('task-level').value = "Lv1";
+      document.getElementById('task-level').value = levels[0]?.id || "Lv1";
       document.getElementById('task-start').value = startTimeStr || "07:00";
       document.getElementById('task-duration').value = "10";
       document.getElementById('delete-btn').classList.add('hidden');
@@ -978,7 +1103,7 @@
       document.getElementById('task-dish').value = task.dish || "";
       document.getElementById('task-name').value = task.name || "";
       document.getElementById('task-position').value = task.position || positions[0]?.name;
-      document.getElementById('task-level').value = task.level || "Lv1";
+      document.getElementById('task-level').value = task.level || levels[0]?.id;
       document.getElementById('task-start').value = task.startTime || "07:00";
       document.getElementById('task-duration').value = task.duration || 10;
       document.getElementById('delete-btn').classList.remove('hidden');
@@ -1006,7 +1131,6 @@
       closeTaskModal();
     }
 
-    // 【機能追記】 タスクの複製
     async function duplicateCurrentTask() {
       const newId = 'task_' + Date.now();
       const dupTask = {
